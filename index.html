@@ -17,6 +17,7 @@
 <h2>1b · Ajuste fino oído IZQUIERDO (prioridad)</h2>
 <div class="note">Oído izquierdo post-timpanoplastia, timpanograma tipo As, reflejos ausentes (menos protección natural ante sonidos fuertes): por eso el izquierdo usa compresión algo más suave (máx. 1.6:1) y un límite de salida 3 dB más bajo. Bandas extra de 1/3 de octava a 4, 5, 6.3, 8 y 10 kHz.</div>
 <div id="lfine"></div>
+<h3 style="font-size:.95em">Agudos extra 8–20 kHz</h3><label>Izquierdo: <span id="hl_v">0</span> dB<input type="range" id="hl" min="0" max="15" value="0"></label><label>Derecho: <span id="hr_v">0</span> dB<input type="range" id="hr" min="0" max="15" value="0"></label><div class="note">Sube con filtro tipo shelf desde ~8 kHz. Por encima de ~16 kHz el Bluetooth de los AirPods casi no transmite, y el micrófono del iPhone capta poco. Súbelo despacio: puede aumentar pitidos o sonido chillón.</div>
 <h2>1c · Prueba rápida de umbral (izquierdo)</h2>
 <div class="note">En silencio, con volumen maestro fijo. Para cada frecuencia, sube el nivel hasta que el tono <b>apenas</b> se oiga en el oído izquierdo y pulsa "Marcar". Empieza por 1 kHz (referencia, tu audiograma = 20 dB HL). Estimación relativa (los AirPods no están calibrados): HL(f) ≈ 20 + (umbral f − umbral 1 kHz). Úsalo solo para afinar.</div>
 <label>Frecuencia: <select id="qf"><option>1000</option><option>4000</option><option>6000</option><option>8000</option></select></label>
@@ -68,7 +69,7 @@ master=ctx.createGain();
 const fb=ctx.createBiquadFilter();fb.type='lowpass';fb.frequency.value=11000; // reduce riesgo de pitido
 const lim=ctx.createDynamicsCompressor();lim.threshold.value=-6;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.05;
 const cap=ctx.createWaveShaper();const k=new Float32Array(2048);for(let i=0;i<2048;i++){const x=i/1023.5-1;k[i]=Math.max(-.7,Math.min(.7,x))}cap.curve=k; // techo duro ≈ -3 dBFS
-master.connect(fb);fb.connect(lim);lim.connect(cap);cap.connect(ctx.destination);
+const hsp=ctx.createChannelSplitter(2),hmg=ctx.createChannelMerger(2);hsL=ctx.createBiquadFilter();hsR=ctx.createBiquadFilter();[hsL,hsR].forEach((h,i)=>{h.type='highshelf';h.frequency.value=8000;h.gain.value=0;hsp.connect(h,i);h.connect(hmg,0,i)});master.connect(hsp);hmg.connect(fb);fbF=fb;fb.connect(lim);lim.connect(cap);cap.connect(ctx.destination);
 outBus=ctx.createGain();outBus.connect(fb); // terapia independiente del volumen del amplificador
 buildAmp();upd()}
 function buildAmp(){inBus=ctx.createChannelSplitter(2);const mg=ctx.createChannelMerger(2);amp.dry={};
@@ -99,12 +100,12 @@ function show(){let r='';const ref=qThr[1000];for(const f of[4000,6000,8000])if(
 $('qapply').onclick=()=>{const ref=qThr[1000];if(ref==null){$('qres').textContent='Falta 1 kHz';return}
  for(const f of[4000,6000,8000])if(qThr[f]!=null){const h=Math.max(0,Math.min(70,20+qThr[f]-ref));HL.L[AF.indexOf(f)]=h;PG.L[AF.indexOf(f)]=rule(h)}
  if(PG.L[5]==0)PG.L[5]=PG.L[6]*.25;BF.forEach((f,i)=>BG.L[i]=interp('L',f));upd();$('qres').textContent+=' ✔️ Aplicado (recarga la página para volver al audiograma).'};
-['vol','mul','tl','tr','cr','tv','nf','zb','tm'].forEach(i=>$(i+'_v').textContent=$(i).value);
+['vol','mul','tl','tr','cr','tv','nf','zb','tm','hl','hr'].forEach(i=>$(i+'_v').textContent=$(i).value);
 if(!ctx)return;const m=$('mul').value/100,b=$('byp').checked,cr=+$('cr').value;
 ['L','R'].forEach(e=>{amp.dry[e].gain.value=b?1:0;amp[e+'wet'].gain.value=b?0:BANDNORM;
  amp[e].forEach((o,i)=>{o.g.gain.value=Math.pow(10,BG[e][i]*m/20);o.c.ratio.value=e=='L'?Math.min(cr,1.6):cr});if(e=='L')lPk.forEach((p,i)=>p.gain.value=b?0:lTrim[i]);
  amp[e+'tr'].gain.value=Math.pow(10,$(e=='L'?'tl':'tr').value/20)});
-master.gain.value=Math.pow($('vol').value/100,2)*0.8;
+master.gain.value=Math.pow($('vol').value/100,2)*0.8;if(hsL){hsL.gain.value=b?0:+$('hl').value;hsR.gain.value=b?0:+$('hr').value;fbF.frequency.value=(+$('hl').value||+$('hr').value)?Math.min(20000,ctx.sampleRate/2-500):11000}
 if(th.lvl)th.lvl.gain.value=Math.pow(10,$('tv').value/20);
 if(th.notches)th.notches.forEach((n,i)=>{n.frequency.value=$('nf').value;n.gain&&0})}
 function toStereo(n,mono){const sp=ctx.createChannelSplitter(2),mm=ctx.createChannelMerger(2);n.connect(sp);sp.connect(mm,0,0);sp.connect(mm,mono?0:1,1);return mm}
@@ -115,7 +116,7 @@ $('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;newCtx();awa
 toStereo(ctx.createMediaElementSource(fileEl),false).connect(inBus);fileEl.play();$('st').textContent='Reproduciendo archivo con procesamiento auditivo'};
 
 // ---------- Terapia ----------
-let th={},tEl,tTimer;
+let th={},tEl,tTimer;var hsL,hsR,fbF;
 function pinkBuf(sec){const n=ctx.sampleRate*sec,b=ctx.createBuffer(2,n,ctx.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;for(let i=0;i<n;i++){const w=Math.random()*2-1;b0=.99886*b0+w*.0555179;b1=.99332*b1+w*.0750759;b2=.969*b2+w*.153852;b3=.8665*b3+w*.3104856;b4=.55*b4+w*.5329522;b5=-.7616*b5-w*.016898;d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11;b6=w*.115926}}return b}
 function stopT(){clearTimeout(tTimer);clearInterval(th.zi);if(th.src)try{th.src.stop()}catch(e){}if(tEl)tEl.pause();if(th.lvl)th.lvl.disconnect();th={};$('tgo').textContent='▶️ Iniciar terapia';$('tgo').className=''}
 $('tgo').onclick=async()=>{if(th.lvl){stopT();$('st').textContent='Terapia detenida';return}
@@ -135,6 +136,6 @@ th.zi=setInterval(()=>{k++;for(let j=0;j<3;j++)if(k%(1<<j)==0)r[j]=Math.floor(Ma
  const f=Math.min(9000,base*Math.pow(2,(sc[idx]-12)/12)),o=ctx.createOscillator(),g=ctx.createGain(),p=ctx.createStereoPanner?ctx.createStereoPanner():ctx.createGain(),t0=ctx.currentTime;
  o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(.5,t0+.02);g.gain.exponentialRampToValueAtTime(.001,t0+1.6);
  if(p.pan)p.pan.value=Math.random()*.8-.4;o.connect(g);g.connect(p);p.connect(out);o.start(t0);o.stop(t0+1.7)},[350,500,700][Math.floor(Math.random()*3)])}
-['vol','mul','tl','tr','cr','tv','nf','zb','tm'].forEach(i=>$(i).oninput=upd);$('byp').onchange=upd;upd();
+['vol','mul','tl','tr','cr','tv','nf','zb','tm','hl','hr'].forEach(i=>$(i).oninput=upd);$('byp').onchange=upd;upd();
 window.onerror=(m)=>{$('st').textContent='Error JS: '+m};
 </script></body></html>
