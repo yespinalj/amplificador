@@ -24,6 +24,7 @@
 <label>Nivel del tono: <span id="ql_v">-70</span> dBFS<input type="range" id="ql" min="-100" max="-20" value="-70"></label>
 <button id="qplay">🔈 Tono (izq.)</button><button id="qmark">✔️ Marcar umbral</button><button id="qapply">Aplicar a ganancias izquierdas</button>
 <div id="qres" style="font-size:.85em"></div>
+<div class="note">Segundo plano: la terapia sigue sonando si sales de Safari o bloqueas la pantalla (iOS 16+). El micrófono del amplificador lo pausa iOS en segundo plano; para amplificar deja la app abierta.</div>
 <h2>2 · Terapia de tinnitus (8 kHz)</h2>
 <label>Fuente: <select id="tsrc"><option value="music">Música con muesca (elige archivo abajo)</option><option value="noise">Ruido rosa con muesca 8 kHz</option><option value="enrich">Enriquecimiento sonoro (ruido rosa suave, sin muesca)</option><option value="zen">Tonos fractales (estilo Zen)</option><option value="ri">Inhibición residual (ruido banda 8 kHz, 60 s)</option></select></label>
 <label>Archivo de música para terapia: <input type="file" id="tfile" accept="audio/*"></label>
@@ -69,7 +70,9 @@ master=ctx.createGain();
 const fb=ctx.createBiquadFilter();fb.type='lowpass';fb.frequency.value=11000; // reduce riesgo de pitido
 const lim=ctx.createDynamicsCompressor();lim.threshold.value=-6;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.05;
 const cap=ctx.createWaveShaper();const k=new Float32Array(2048);for(let i=0;i<2048;i++){const x=i/1023.5-1;k[i]=Math.max(-.7,Math.min(.7,x))}cap.curve=k; // techo duro ≈ -3 dBFS
-const hsp=ctx.createChannelSplitter(2),hmg=ctx.createChannelMerger(2);hsL=ctx.createBiquadFilter();hsR=ctx.createBiquadFilter();[hsL,hsR].forEach((h,i)=>{h.type='highshelf';h.frequency.value=8000;h.gain.value=0;hsp.connect(h,i);h.connect(hmg,0,i)});master.connect(hsp);hmg.connect(fb);fbF=fb;fb.connect(lim);lim.connect(cap);cap.connect(ctx.destination);
+const hsp=ctx.createChannelSplitter(2),hmg=ctx.createChannelMerger(2);hsL=ctx.createBiquadFilter();hsR=ctx.createBiquadFilter();[hsL,hsR].forEach((h,i)=>{h.type='highshelf';h.frequency.value=8000;h.gain.value=0;hsp.connect(h,i);h.connect(hmg,0,i)});master.connect(hsp);hmg.connect(fb);fbF=fb;fb.connect(lim);lim.connect(cap);try{const md=ctx.createMediaStreamDestination();cap.connect(md);bgEl=document.createElement('audio');bgEl.setAttribute('playsinline','');bgEl.srcObject=md.stream;document.body.appendChild(bgEl);bgEl.play().catch(()=>{});bgMode=true}catch(e){cap.connect(ctx.destination)}
+if('mediaSession' in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:'Amplificador + Terapia',artist:'Yobanni'})}
+document.addEventListener('visibilitychange',()=>{if(ctx&&ctx.state!='running')ctx.resume();if(bgEl&&bgEl.paused)bgEl.play().catch(()=>{})});
 outBus=ctx.createGain();outBus.connect(fb); // terapia independiente del volumen del amplificador
 buildAmp();upd()}
 function buildAmp(){inBus=ctx.createChannelSplitter(2);const mg=ctx.createChannelMerger(2);amp.dry={};
@@ -116,7 +119,7 @@ $('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;newCtx();awa
 toStereo(ctx.createMediaElementSource(fileEl),false).connect(inBus);fileEl.play();$('st').textContent='Reproduciendo archivo con procesamiento auditivo'};
 
 // ---------- Terapia ----------
-let th={},tEl,tTimer;var hsL,hsR,fbF;
+let th={},tEl,tTimer;var bgEl,bgMode;var hsL,hsR,fbF;
 function pinkBuf(sec){const n=ctx.sampleRate*sec,b=ctx.createBuffer(2,n,ctx.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;for(let i=0;i<n;i++){const w=Math.random()*2-1;b0=.99886*b0+w*.0555179;b1=.99332*b1+w*.0750759;b2=.969*b2+w*.153852;b3=.8665*b3+w*.3104856;b4=.55*b4+w*.5329522;b5=-.7616*b5-w*.016898;d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11;b6=w*.115926}}return b}
 function stopT(){clearTimeout(tTimer);clearInterval(th.zi);if(th.src)try{th.src.stop()}catch(e){}if(tEl)tEl.pause();if(th.lvl)th.lvl.disconnect();th={};$('tgo').textContent='▶️ Iniciar terapia';$('tgo').className=''}
 $('tgo').onclick=async()=>{if(th.lvl){stopT();$('st').textContent='Terapia detenida';return}
