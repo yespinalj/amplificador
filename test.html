@@ -1,0 +1,36 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Test de tinnitus</title><style>body{font-family:-apple-system,sans-serif;background:#0f1720;color:#e6edf3;max-width:560px;margin:auto;padding:16px}button{font-size:17px;padding:12px 14px;margin:4px;border-radius:10px;border:0;background:#2b6cb0;color:#fff}button.s{background:#38404a}input{width:100%}.big{font-size:34px;text-align:center;margin:10px}.card{background:#18222d;padding:14px;border-radius:12px;margin:12px 0}small{color:#9fb0c0}</style></head><body>
+<h1>Test de frecuencia del tinnitus</h1>
+<div class="card"><small>Hazlo en un lugar silencioso, con los AirPods puestos y el modo silencio apagado. Empieza con el volumen bajo. Esto es una prueba orientativa, no un diagnóstico.</small></div>
+<div class="card"><b>1. Oído</b><br><button id="eL">Izquierdo</button><button id="eR" class="s">Derecho</button><button id="eB" class="s">Ambos</button></div>
+<div class="card"><b>2. Tipo de sonido</b><br><button id="tT">Tono (pitido)</button><button id="tN" class="s">Ruido estrecho (siseo)</button></div>
+<div class="card"><b>3. Mueve hasta que se parezca a tu zumbido</b><div class="big" id="fv">4000 Hz</div>
+<input type="range" id="f" min="0" max="1000" value="600"><button class="s" id="dn">−1%</button><button class="s" id="up">+1%</button>
+<br><br>Volumen <input type="range" id="v" min="-80" max="-10" value="-55"><small id="vv"></small>
+<br><button id="pl">▶ Reproducir</button><button class="s" id="st">■ Parar</button></div>
+<div class="card"><b>4. Verifica la octava</b><br><small>Es muy común confundirse por una octava. Compara cuál se parece más.</small><br>
+<button class="s" id="o1">Mitad</button><button class="s" id="o2">Actual</button><button class="s" id="o3">Doble</button></div>
+<div class="card"><button id="sv">Guardar resultado</button><div id="res"></div></div>
+<p><a href="index.html" style="color:#7fb3ff">← Volver al amplificador</a></p>
+<script>
+let ctx,src,g,pan,ear='L',type='T',f=4000;const $=i=>document.getElementById(i);
+const pos2f=p=>250*Math.pow(16000/250,p/1000),f2pos=x=>1000*Math.log(x/250)/Math.log(64);
+function ui(){$('fv').textContent=Math.round(f)+' Hz';$('vv').textContent=$('v').value+' dBFS';
+['eL','eR','eB'].forEach(k=>$(k).className=(k=='e'+ear)?'':'s');['tT','tN'].forEach(k=>$(k).className=(k=='t'+type)?'':'s')}
+function stop(){if(src){try{src.stop()}catch(e){}src=null}}
+function play(fr){fr=fr||f;if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();ctx.resume();stop();
+g=ctx.createGain();g.gain.value=Math.pow(10,$('v').value/20);pan=ctx.createStereoPanner();pan.pan.value=ear=='L'?-1:ear=='R'?1:0;
+if(type=='T'){src=ctx.createOscillator();src.frequency.value=fr;src.connect(g)}else{const b=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+src=ctx.createBufferSource();src.buffer=b;src.loop=true;const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=fr;bp.Q.value=8;src.connect(bp);bp.connect(g);g.gain.value*=4}
+g.connect(pan);pan.connect(ctx.destination);src.start()}
+function upd(){if(src){if(type=='T')src.frequency.value=f;else play()}ui()}
+$('f').oninput=e=>{f=pos2f(+e.target.value);upd()};$('dn').onclick=()=>{f*=0.99;$('f').value=f2pos(f);upd()};$('up').onclick=()=>{f*=1.01;$('f').value=f2pos(f);upd()};
+$('v').oninput=()=>{if(g)g.gain.value=Math.pow(10,$('v').value/20)*(type=='N'?4:1);ui()};
+$('pl').onclick=()=>play();$('st').onclick=stop;
+$('eL').onclick=()=>{ear='L';src&&play();ui()};$('eR').onclick=()=>{ear='R';src&&play();ui()};$('eB').onclick=()=>{ear='B';src&&play();ui()};
+$('tT').onclick=()=>{type='T';src&&play();ui()};$('tN').onclick=()=>{type='N';src&&play();ui()};
+$('o1').onclick=()=>play(f/2);$('o2').onclick=()=>play(f);$('o3').onclick=()=>play(Math.min(f*2,20000));
+function show(){const r=JSON.parse(localStorage.tinnitusTest||'[]');$('res').innerHTML=r.map(x=>`<div>${x.d}: oído ${x.e}, ${x.f} Hz, ${x.t}</div>`).join('')}
+$('sv').onclick=()=>{const r=JSON.parse(localStorage.tinnitusTest||'[]');r.unshift({d:new Date().toLocaleString('es-DO'),e:{L:'izq',R:'der',B:'ambos'}[ear],f:Math.round(f),t:type=='T'?'tono':'ruido'});localStorage.tinnitusTest=JSON.stringify(r.slice(0,20));show()};
+f=pos2f(600);ui();show();
+</script></body></html>
