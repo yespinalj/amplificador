@@ -29,6 +29,9 @@
 <h2>2 · Terapia de tinnitus (8 kHz)</h2>
 <label>Fuente: <select id="tsrc"><option value="music">Música con muesca (elige archivo abajo)</option><option value="noise">Ruido rosa con muesca 8 kHz</option><option value="enrich">Enriquecimiento sonoro (ruido rosa suave, sin muesca)</option><option value="zen">Tonos fractales (estilo Zen)</option><option value="ri">Inhibición residual (ruido banda 8 kHz, 60 s)</option></select></label>
 <label>Archivo de música para terapia: <input type="file" id="tfile" accept="audio/*"></label>
+<label>Balance terapia oído izquierdo: <span id="tbl_v">6</span> dB<input type="range" id="tbl" min="-10" max="15" step="1" value="6"></label>
+<label>Balance terapia oído derecho: <span id="tbr_v">0</span> dB<input type="range" id="tbr" min="-10" max="15" step="1" value="0"></label>
+<div class="note">Según tu audiograma, cerca de la muesca (4–6 kHz) el izquierdo oye unos 10 dB peor y a 8 kHz 15 dB peor; se aplica +6 dB al izquierdo (≈ mitad de la diferencia, como las reglas de ganancia). Ajusta hasta que ambos lados suenen igual de fuertes respecto a su zumbido.</div>
 <label><input type="checkbox" id="notch" checked> Muesca de 1 octava centrada en <span id="nf_v">8646</span> Hz</label>
 <label>Frecuencia del tinnitus: <input type="range" id="nf" min="4000" max="12000" step="1" value="8646"></label>
 <label>Nivel de terapia: <span id="tv_v">-30</span> dBFS<input type="range" id="tv" min="-60" max="-10" value="-30"></label>
@@ -104,13 +107,13 @@ function show(){let r='';const ref=qThr[1000];for(const f of[4000,6000,8000])if(
 $('qapply').onclick=()=>{const ref=qThr[1000];if(ref==null){$('qres').textContent='Falta 1 kHz';return}
  for(const f of[4000,6000,8000])if(qThr[f]!=null){const h=Math.max(0,Math.min(70,20+qThr[f]-ref));HL.L[AF.indexOf(f)]=h;PG.L[AF.indexOf(f)]=rule(h)}
  if(PG.L[5]==0)PG.L[5]=PG.L[6]*.25;BF.forEach((f,i)=>BG.L[i]=interp('L',f));upd();$('qres').textContent+=' ✔️ Aplicado (recarga la página para volver al audiograma).'};
-['vol','mul','tl','tr','cr','tv','nf','zb','tm','hl','hr'].forEach(i=>$(i+'_v').textContent=$(i).value);
+['vol','mul','tl','tr','cr','tv','nf','zb','tm','hl','hr','tbl','tbr'].forEach(i=>$(i+'_v').textContent=$(i).value);
 if(!ctx)return;const m=$('mul').value/100,b=$('byp').checked,cr=+$('cr').value;
 ['L','R'].forEach(e=>{amp.dry[e].gain.value=b?1:0;amp[e+'wet'].gain.value=b?0:BANDNORM;
  amp[e].forEach((o,i)=>{o.g.gain.value=Math.pow(10,BG[e][i]*m/20);o.c.ratio.value=e=='L'?Math.min(cr,1.6):cr});if(e=='L')lPk.forEach((p,i)=>p.gain.value=b?0:lTrim[i]);
  amp[e+'tr'].gain.value=Math.pow(10,$(e=='L'?'tl':'tr').value/20)});
 master.gain.value=Math.pow($('vol').value/100,2)*0.8;if(hsL){hsL.gain.value=b?0:+$('hl').value;hsR.gain.value=b?0:+$('hr').value;fbF.frequency.value=(+$('hl').value||+$('hr').value)?Math.min(20000,ctx.sampleRate/2-500):11000}
-if(th.lvl)th.lvl.gain.value=Math.pow(10,$('tv').value/20);
+if(th.lvl)th.lvl.gain.value=Math.pow(10,$('tv').value/20);if(th.eL){th.eL.gain.value=Math.pow(10,$('tbl').value/20);th.eR.gain.value=Math.pow(10,$('tbr').value/20)}
 if(th.notches)th.notches.forEach((n,i)=>{n.frequency.value=$('nf').value;n.gain&&0})}
 function toStereo(n,mono){const sp=ctx.createChannelSplitter(2),mm=ctx.createChannelMerger(2);n.connect(sp);sp.connect(mm,0,0);sp.connect(mm,mono?0:1,1);return mm}
 $('go').onclick=async()=>{if(running){stream.getTracks().forEach(t=>t.stop());micSrc.disconnect();running=false;$('go').textContent='▶️ Iniciar micrófono';$('go').className='';$('st').textContent='Micrófono detenido';return}
@@ -124,7 +127,7 @@ let th={},tEl,tTimer;var bgEl,bgMode;var hsL,hsR,fbF;
 function pinkBuf(sec){const n=ctx.sampleRate*sec,b=ctx.createBuffer(2,n,ctx.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;for(let i=0;i<n;i++){const w=Math.random()*2-1;b0=.99886*b0+w*.0555179;b1=.99332*b1+w*.0750759;b2=.969*b2+w*.153852;b3=.8665*b3+w*.3104856;b4=.55*b4+w*.5329522;b5=-.7616*b5-w*.016898;d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11;b6=w*.115926}}return b}
 function stopT(){clearTimeout(tTimer);clearInterval(th.zi);if(th.src)try{th.src.stop()}catch(e){}if(tEl)tEl.pause();if(th.lvl)th.lvl.disconnect();th={};$('tgo').textContent='▶️ Iniciar terapia';$('tgo').className=''}
 $('tgo').onclick=async()=>{if(th.lvl){stopT();$('st').textContent='Terapia detenida';return}
-newCtx();await ctx.resume();const mode=$('tsrc').value;th.lvl=ctx.createGain();th.lvl.connect(outBus);let src;
+newCtx();await ctx.resume();const mode=$('tsrc').value;th.lvl=ctx.createGain();{const sp=ctx.createChannelSplitter(2),mg=ctx.createChannelMerger(2);th.eL=ctx.createGain();th.eR=ctx.createGain();th.lvl.connect(sp);sp.connect(th.eL,0);sp.connect(th.eR,1);th.eL.connect(mg,0,0);th.eR.connect(mg,0,1);mg.connect(outBus)}let src;
 if(mode=='music'){const f=$('tfile').files[0];if(!f){$('st').textContent='Elige un archivo de música para terapia';th.lvl.disconnect();th={};return}
  tEl=new Audio(URL.createObjectURL(f));tEl.loop=true;tEl.controls=true;$('tfile').after(tEl);src=toStereo(ctx.createMediaElementSource(tEl),false);tEl.play()}
 else if(mode=='zen'){src=ctx.createGain();zen(src)}
@@ -140,6 +143,6 @@ th.zi=setInterval(()=>{k++;for(let j=0;j<3;j++)if(k%(1<<j)==0)r[j]=Math.floor(Ma
  const f=Math.min(9000,base*Math.pow(2,(sc[idx]-12)/12)),o=ctx.createOscillator(),g=ctx.createGain(),p=ctx.createStereoPanner?ctx.createStereoPanner():ctx.createGain(),t0=ctx.currentTime;
  o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(.5,t0+.02);g.gain.exponentialRampToValueAtTime(.001,t0+1.6);
  if(p.pan)p.pan.value=Math.random()*.8-.4;o.connect(g);g.connect(p);p.connect(out);o.start(t0);o.stop(t0+1.7)},[350,500,700][Math.floor(Math.random()*3)])}
-['vol','mul','tl','tr','cr','tv','nf','zb','tm','hl','hr'].forEach(i=>$(i).oninput=upd);$('byp').onchange=upd;upd();
+['vol','mul','tl','tr','cr','tv','nf','zb','tm','hl','hr','tbl','tbr'].forEach(i=>$(i).oninput=upd);$('byp').onchange=upd;upd();
 window.onerror=(m)=>{$('st').textContent='Error JS: '+m};
 </script></body></html>
