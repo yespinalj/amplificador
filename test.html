@@ -6,19 +6,19 @@
 <div class="card"><b>2. Tipo de sonido</b><br><button id="tT">Tono (pitido)</button><button id="tN" class="s">Ruido estrecho (siseo)</button></div>
 <div class="card"><b>3. Mueve hasta que se parezca a tu zumbido</b><div class="big" id="fv">4000 Hz</div>
 <input type="range" id="f" min="0" max="1000" value="600"><button class="s" id="dn">−1%</button><button class="s" id="up">+1%</button>
-<br><br>Volumen <input type="range" id="v" min="-80" max="-10" value="-55"><small id="vv"></small>
+<br><br>Volumen <input type="range" id="v" min="-70" max="-5" value="-30"><small id="vv"></small>
 <br><button id="pl">▶ Reproducir</button><button class="s" id="st">■ Parar</button></div>
 <div class="card"><b>4. Verifica la octava</b><br><small>Es muy común confundirse por una octava. Compara cuál se parece más.</small><br>
 <button class="s" id="o1">Mitad</button><button class="s" id="o2">Actual</button><button class="s" id="o3">Doble</button></div>
 <div class="card"><button id="sv">Guardar resultado</button><div id="res"></div></div>
 <p><a href="index.html" style="color:#7fb3ff">← Volver al amplificador</a></p>
-<script>
+<audio id="unl" playsinline src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="></audio><script>
 let ctx,src,g,pan,ear='L',type='T',f=4000;const $=i=>document.getElementById(i);
 const pos2f=p=>250*Math.pow(16000/250,p/1000),f2pos=x=>1000*Math.log(x/250)/Math.log(64);
 function ui(){$('fv').textContent=Math.round(f)+' Hz';$('vv').textContent=$('v').value+' dBFS';
 ['eL','eR','eB'].forEach(k=>$(k).className=(k=='e'+ear)?'':'s');['tT','tN'].forEach(k=>$(k).className=(k=='t'+type)?'':'s')}
 function stop(){if(src){try{src.stop()}catch(e){}src=null}}
-function play(fr){fr=fr||f;if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();ctx.resume();stop();
+function play(fr){fr=fr||f;if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();ctx.resume();try{$('unl').play()}catch(e){};stop();
 g=ctx.createGain();g.gain.value=Math.pow(10,$('v').value/20);pan=ctx.createStereoPanner();pan.pan.value=ear=='L'?-1:ear=='R'?1:0;
 if(type=='T'){src=ctx.createOscillator();src.frequency.value=fr;src.connect(g)}else{const b=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
 src=ctx.createBufferSource();src.buffer=b;src.loop=true;const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=fr;bp.Q.value=8;src.connect(bp);bp.connect(g);g.gain.value*=4}
