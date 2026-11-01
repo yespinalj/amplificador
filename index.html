@@ -28,7 +28,7 @@
 <label>Archivo de música para terapia: <input type="file" id="tfile" accept="audio/*"></label>
 <label><input type="checkbox" id="notch" checked> Muesca de 1 octava centrada en <span id="nf_v">8000</span> Hz</label>
 <label>Frecuencia del tinnitus: <input type="range" id="nf" min="4000" max="10000" step="250" value="8000"></label>
-<label>Nivel de terapia: <span id="tv_v">-45</span> dBFS<input type="range" id="tv" min="-70" max="-20" value="-45"></label>
+<label>Nivel de terapia: <span id="tv_v">-30</span> dBFS<input type="range" id="tv" min="-60" max="-10" value="-30"></label>
 <label>Tono base fractal: <span id="zb_v">4000</span> Hz<input type="range" id="zb" min="1000" max="8000" step="250" value="4000"></label>
 <label>Temporizador (min, 0 = sin límite): <span id="tm_v">30</span><input type="range" id="tm" min="0" max="120" step="5" value="30"></label>
 <button id="tgo">▶️ Iniciar terapia</button>
@@ -69,7 +69,7 @@ const fb=ctx.createBiquadFilter();fb.type='lowpass';fb.frequency.value=11000; //
 const lim=ctx.createDynamicsCompressor();lim.threshold.value=-6;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.05;
 const cap=ctx.createWaveShaper();const k=new Float32Array(2048);for(let i=0;i<2048;i++){const x=i/1023.5-1;k[i]=Math.max(-.7,Math.min(.7,x))}cap.curve=k; // techo duro ≈ -3 dBFS
 master.connect(fb);fb.connect(lim);lim.connect(cap);cap.connect(ctx.destination);
-outBus=ctx.createGain();outBus.connect(master);
+outBus=ctx.createGain();outBus.connect(fb); // terapia independiente del volumen del amplificador
 buildAmp();upd()}
 function buildAmp(){inBus=ctx.createChannelSplitter(2);const mg=ctx.createChannelMerger(2);amp.dry={};
 ['L','R'].forEach((e,ci)=>{const sum=ctx.createGain();amp[e]=[];
