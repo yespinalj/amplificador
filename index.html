@@ -8,7 +8,7 @@
 <label>Música/archivo por el mismo procesamiento: <input type="file" id="file" accept="audio/*"></label>
 <label><input type="checkbox" id="byp"> Bypass (sin procesamiento auditivo)</label>
 <label>Volumen maestro: <span id="vol_v">20</span>%<input type="range" id="vol" min="0" max="100" value="20"></label>
-<label>Multiplicador de ganancia: <span id="mul_v">100</span>%<input type="range" id="mul" min="50" max="120" value="100"></label>
+<label>Multiplicador de ganancia: <span id="mul_v">110</span>%<input type="range" id="mul" min="50" max="120" value="110"></label>
 <label>Ajuste oído izquierdo: <span id="tl_v">0</span> dB<input type="range" id="tl" min="-12" max="6" value="0"></label>
 <label>Ajuste oído derecho: <span id="tr_v">0</span> dB<input type="range" id="tr" min="-12" max="6" value="0"></label>
 <label>Compresión (razón WDRC): <span id="cr_v">1.8</span>:1<input type="range" id="cr" min="1" max="3" step="0.1" value="1.8"></label>
@@ -85,8 +85,8 @@ function buildAmp(){inBus=ctx.createChannelSplitter(2);const mg=ctx.createChanne
 const out=ctx.createGain();mg.connect(out);out.connect(outBus);amp.out=out}
 let lPk=[];const BANDNORM=1/2.2; // compensa la suma de bandas paralelas (aprox.)
 function upd(){
-const LF=[4000,5000,6300,8000,10000];let lTrim=[0,0,0,0,0];
-$('lfine').innerHTML=LF.map((f,i)=>`<label>${f} Hz: <span id="lt${i}_v">0</span> dB<input type="range" id="lt${i}" min="-10" max="10" value="0"></label>`).join('');
+const LF=[4000,5000,6300,8000,10000];let lTrim=[0,0,2,2,0];
+$('lfine').innerHTML=LF.map((f,i)=>`<label>${f} Hz: <span id="lt${i}_v">${lTrim[i]}</span> dB<input type="range" id="lt${i}" min="-10" max="10" value="${lTrim[i]}"></label>`).join('');
 LF.forEach((f,i)=>$('lt'+i).oninput=()=>{lTrim[i]=+$('lt'+i).value;$('lt'+i+'_v').textContent=lTrim[i];upd()});
 let qT={};
 $('ql').oninput=()=>{$('ql_v').textContent=$('ql').value;if(qT.g)qT.g.gain.value=Math.pow(10,$('ql').value/20)};
