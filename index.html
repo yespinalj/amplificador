@@ -1,0 +1,140 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Amplificador Auditivo + Terapia</title>
+<style>body{font-family:-apple-system,sans-serif;background:#111;color:#eee;margin:0;padding:14px;max-width:580px}h1{font-size:1.25em}h2{font-size:1.05em;margin-top:22px;border-top:1px solid #333;padding-top:10px}.warn{background:#5a1d1d;padding:10px;border-radius:8px;font-size:.88em}.note{background:#1d3a5a;padding:10px;border-radius:8px;font-size:.8em;margin-top:10px}button{font-size:1.05em;padding:11px;border-radius:10px;border:0;width:100%;margin:5px 0;background:#2a7;color:#fff}button.on{background:#a33}label{display:block;margin-top:10px;font-size:.95em}input[type=range]{width:100%}table{width:100%;border-collapse:collapse;font-size:.78em;margin-top:8px}td,th{border:1px solid #444;padding:3px;text-align:center}#st{font-size:.85em;color:#9c9;margin-top:8px}a{color:#8cf}</style></head><body>
+<h1>🎧 Amplificador de agudos + Terapia de tinnitus (AirPods Pro)</h1>
+<div class="warn">⚠️ Empieza con volumen BAJO. Puede sonar fuerte o pitar (realimentación) si el micrófono del iPhone está cerca de los AirPods. Si oyes un pitido, quítatelos. La terapia debe sonar SIEMPRE más baja que tu tinnitus o apenas audible. No es un dispositivo médico.</div>
+
+<h2>1 · Amplificador (estilo Widex, 15 canales WDRC)</h2>
+<button id="go">▶️ Iniciar micrófono</button>
+<label>Música/archivo por el mismo procesamiento: <input type="file" id="file" accept="audio/*"></label>
+<label><input type="checkbox" id="byp"> Bypass (sin procesamiento auditivo)</label>
+<label>Volumen maestro: <span id="vol_v">20</span>%<input type="range" id="vol" min="0" max="100" value="20"></label>
+<label>Multiplicador de ganancia: <span id="mul_v">100</span>%<input type="range" id="mul" min="50" max="120" value="100"></label>
+<label>Ajuste oído izquierdo: <span id="tl_v">0</span> dB<input type="range" id="tl" min="-12" max="6" value="0"></label>
+<label>Ajuste oído derecho: <span id="tr_v">0</span> dB<input type="range" id="tr" min="-12" max="6" value="0"></label>
+<label>Compresión (razón WDRC): <span id="cr_v">1.8</span>:1<input type="range" id="cr" min="1" max="3" step="0.1" value="1.8"></label>
+<table id="tab"></table>
+
+<h2>1b · Ajuste fino oído IZQUIERDO (prioridad)</h2>
+<div class="note">Oído izquierdo post-timpanoplastia, timpanograma tipo As, reflejos ausentes (menos protección natural ante sonidos fuertes): por eso el izquierdo usa compresión algo más suave (máx. 1.6:1) y un límite de salida 3 dB más bajo. Bandas extra de 1/3 de octava a 4, 5, 6.3, 8 y 10 kHz.</div>
+<div id="lfine"></div>
+<h2>1c · Prueba rápida de umbral (izquierdo)</h2>
+<div class="note">En silencio, con volumen maestro fijo. Para cada frecuencia, sube el nivel hasta que el tono <b>apenas</b> se oiga en el oído izquierdo y pulsa "Marcar". Empieza por 1 kHz (referencia, tu audiograma = 20 dB HL). Estimación relativa (los AirPods no están calibrados): HL(f) ≈ 20 + (umbral f − umbral 1 kHz). Úsalo solo para afinar.</div>
+<label>Frecuencia: <select id="qf"><option>1000</option><option>4000</option><option>6000</option><option>8000</option></select></label>
+<label>Nivel del tono: <span id="ql_v">-70</span> dBFS<input type="range" id="ql" min="-100" max="-20" value="-70"></label>
+<button id="qplay">🔈 Tono (izq.)</button><button id="qmark">✔️ Marcar umbral</button><button id="qapply">Aplicar a ganancias izquierdas</button>
+<div id="qres" style="font-size:.85em"></div>
+<h2>2 · Terapia de tinnitus (8 kHz)</h2>
+<label>Fuente: <select id="tsrc"><option value="music">Música con muesca (elige archivo abajo)</option><option value="noise">Ruido rosa con muesca 8 kHz</option><option value="enrich">Enriquecimiento sonoro (ruido rosa suave, sin muesca)</option><option value="zen">Tonos fractales (estilo Zen)</option><option value="ri">Inhibición residual (ruido banda 8 kHz, 60 s)</option></select></label>
+<label>Archivo de música para terapia: <input type="file" id="tfile" accept="audio/*"></label>
+<label><input type="checkbox" id="notch" checked> Muesca de 1 octava centrada en <span id="nf_v">8000</span> Hz</label>
+<label>Frecuencia del tinnitus: <input type="range" id="nf" min="4000" max="10000" step="250" value="8000"></label>
+<label>Nivel de terapia: <span id="tv_v">-45</span> dBFS<input type="range" id="tv" min="-70" max="-20" value="-45"></label>
+<label>Tono base fractal: <span id="zb_v">4000</span> Hz<input type="range" id="zb" min="1000" max="8000" step="250" value="4000"></label>
+<label>Temporizador (min, 0 = sin límite): <span id="tm_v">30</span><input type="range" id="tm" min="0" max="120" step="5" value="30"></label>
+<button id="tgo">▶️ Iniciar terapia</button>
+<div id="st">Detenido</div>
+
+<div class="note"><b>Uso con AirPods Pro</b><br>• Bluetooth añade ~150–250 ms de retraso: úsalo para TV, música o escuchar; no para conversación cara a cara (los labios se desincronizan). Widex logra &lt;0.5 ms; esto es imposible por Bluetooth.<br>• Pon los AirPods en <b>Transparencia DESACTIVADA</b> (Cancelación de ruido o Desactivado) para evitar sonido doble/eco.<br>• Alternativa de baja latencia en iOS: <b>Ajustes › Accesibilidad › Audio/Visual › Adaptaciones de auriculares</b> (cargar audiograma) y <b>Escucha en vivo</b> (Centro de control › Audición). En AirPods Pro 2 con iOS 18+ también existe la función <b>Audífono</b> (si está disponible en tu país).</div>
+
+<div class="note"><b>Qué se emula de Widex (fuentes públicas)</b><br>• ZeroDelay/PureSound: retardo &lt;0.5 ms, banco de filtros en dominio temporal, 33 kHz — <a href="https://www.widexpro.com/en-us/campaign/us/moment-puresound-zero-delay/">widexpro.com</a>, <a href="https://www.widexpro.com/en/widex-sound/puresound/">PureSound</a>. Aquí: filtros IIR en dominio temporal (Biquad) sin FFT y <i>latencyHint:'interactive'</i>; la latencia real la domina Bluetooth.<br>• Zen: tonos fractales "predecibles pero no repetitivos", ajustables en tono, tempo y volumen — <a href="https://www.widex.com/en/tinnitus/relief/tinnitus-sound-therapy-widex-zen/">widex.com Zen</a>, <a href="https://www.widexpro.com/-/media/widex/global/files/widex-press/widexpress_37_2017-04_a-compilation-of-widex-zen-therapy-evidence.pdf">WidexPress 37</a>. Aquí: paseo aleatorio 1/f (Voss) sobre escala pentatónica.<br>• <b>Aproximado/no verificado:</b> 15 canales (número elegido como en audífonos Widex de gama media/alta), razones de compresión 1.5–2:1 con umbral suave y constantes lentas (ataque 50 ms, liberación 1 s) típicas de WDRC lenta; la regla de prescripción es tipo NAL-R/media ganancia (0.46×HL solo si HL&gt;20 dB), NO la fórmula propietaria de Widex. Sound Class (clasificación automática de ambientes) no se emula.</div>
+
+<div class="note"><b>Base científica de la terapia (y su fuerza)</b><br>
+• Amplificación de la zona del tinnitus para reducir la "ganancia central": evidencia de <b>baja certeza</b> (Cochrane, Sereda et al. 2018, <a href="https://doi.org/10.1002/14651858.CD013094.pub2">doi:10.1002/14651858.CD013094.pub2</a>).<br>
+• Enriquecimiento sonoro por debajo del tinnitus / "punto de mezcla", sin enmascarar por completo (TRT, Jastreboff &amp; Jastreboff 2000, J Am Acad Audiol 11:162-177). Estudio grande TRTT (Scherer &amp; Formby 2019, JAMA Otolaryngol, <a href="https://doi.org/10.1001/jamaoto.2019.0120">doi:10.1001/jamaoto.2019.0120</a>): el generador de ruido NO superó al placebo; el beneficio venía sobre todo del consejo.<br>
+• Música con muesca (TMNMT) de 1 octava centrada en la frecuencia del tinnitus: Okamoto et al. 2010, PNAS (<a href="https://doi.org/10.1073/pnas.0911268107">doi:10.1073/pnas.0911268107</a>), ~12 h/semana, 12 meses; ensayo controlado mayor (Stein et al. 2016, BMC Neurol, <a href="https://doi.org/10.1186/s12883-016-0558-7">doi:10.1186/s12883-016-0558-7</a>) sin diferencia significativa frente a placebo en el resultado principal. Evidencia <b>mixta/débil</b>; funciona mejor en tinnitus tonal ≤8 kHz.<br>
+• Inhibición residual: alivio breve (segundos-minutos) tras ruido de banda en la frecuencia del tinnitus (Roberts et al. 2008, JARO, <a href="https://doi.org/10.1007/s10162-008-0131-3">doi:10.1007/s10162-008-0131-3</a>). Es temporal, no curativo; aquí está limitado a 60 s y nivel bajo.<br>
+<b>Tu perfil:</b> tinnitus tonal bilateral 8 kHz, 10 dB SL (bajo), grado 3; pérdida 6–8 kHz peor en izquierdo; DPOAE derecho ausente a 8 kHz. Por eso: ganancia solo en 6–8 kHz, muesca centrada en 8 kHz, niveles por defecto bajos (-45 dBFS ≈ cerca del umbral del tinnitus de nivel bajo). Para dormir: "Enriquecimiento" a -55/-50 dBFS con temporizador. Consulta a tu audiólogo/ORL.</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const AF=[250,500,1000,2000,3000,4000,6000,8000];
+const HL={R:[10,15,15,10,15,10,30,40],L:[15,15,20,10,20,20,40,55]};
+const rule=h=>h>20?0.46*h:0;
+const PG={R:HL.R.map(rule),L:HL.L.map(rule)};
+// hombro suave en 4 kHz = 25% de la ganancia de 6 kHz
+PG.R[5]=PG.R[6]*.25;PG.L[5]=PG.L[6]*.25;
+const NB=15,BF=[];for(let i=0;i<NB;i++)BF.push(200*Math.pow(10000/200,i/(NB-1)));
+function interp(e,f){if(f<=AF[0])return PG[e][0];if(f>=8000)return PG[e][7];for(let i=0;i<7;i++)if(f<=AF[i+1]){const t=Math.log(f/AF[i])/Math.log(AF[i+1]/AF[i]);return PG[e][i]+(PG[e][i+1]-PG[e][i])*t}}
+const BG={R:BF.map(f=>interp('R',f)),L:BF.map(f=>interp('L',f))};
+let t='<tr><th>Hz</th><th>HL Der</th><th>Gan Der</th><th>HL Izq</th><th>Gan Izq</th></tr>';
+AF.forEach((f,i)=>t+=`<tr><td>${f}</td><td>${HL.R[i]}</td><td>${PG.R[i].toFixed(1)}</td><td>${HL.L[i]}</td><td>${PG.L[i].toFixed(1)}</td></tr>`);
+t+='<tr><td colspan=5>Ganancia de inserción a nivel suave (dB). 15 canales WDRC 200 Hz–10 kHz:</td></tr>';
+BF.forEach((f,i)=>t+=`<tr><td>${Math.round(f)}</td><td colspan=2>${BG.R[i].toFixed(1)}</td><td colspan=2>${BG.L[i].toFixed(1)}</td></tr>`);
+$('tab').innerHTML=t;
+
+let ctx,inBus,outBus,amp={},running=false,stream,micSrc,fileEl,master;
+function newCtx(){if(ctx)return;ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
+master=ctx.createGain();
+const fb=ctx.createBiquadFilter();fb.type='lowpass';fb.frequency.value=11000; // reduce riesgo de pitido
+const lim=ctx.createDynamicsCompressor();lim.threshold.value=-6;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.05;
+const cap=ctx.createWaveShaper();const k=new Float32Array(2048);for(let i=0;i<2048;i++){const x=i/1023.5-1;k[i]=Math.max(-.7,Math.min(.7,x))}cap.curve=k; // techo duro ≈ -3 dBFS
+master.connect(fb);fb.connect(lim);lim.connect(cap);cap.connect(ctx.destination);
+outBus=ctx.createGain();outBus.connect(master);
+buildAmp();upd()}
+function buildAmp(){inBus=ctx.createChannelSplitter(2);const mg=ctx.createChannelMerger(2);amp.dry={};
+['L','R'].forEach((e,ci)=>{const sum=ctx.createGain();amp[e]=[];
+ const dry=ctx.createGain();inBus.connect(dry,ci);dry.connect(sum);amp.dry[e]=dry;
+ const wet=ctx.createGain();amp[e+'wet']=wet;
+ BF.forEach((f,i)=>{const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=f;bp.Q.value=2.6;
+  const g=ctx.createGain();const c=ctx.createDynamicsCompressor();c.threshold.value=-45;c.knee.value=20;c.attack.value=.05;c.release.value=1.0;
+  inBus.connect(bp,ci);bp.connect(g);g.connect(c);c.connect(wet);amp[e].push({g,c})});
+ const tr=ctx.createGain();wet.connect(sum);let last=sum;
+ if(e=='L'){[4000,5000,6300,8000,10000].forEach(f=>{const pk=ctx.createBiquadFilter();pk.type='peaking';pk.frequency.value=f;pk.Q.value=4.32;last.connect(pk);last=pk;lPk.push(pk)});
+  const ll=ctx.createDynamicsCompressor();ll.threshold.value=-9;ll.knee.value=0;ll.ratio.value=20;ll.attack.value=.001;ll.release.value=.05;last.connect(ll);last=ll}
+ last.connect(tr);tr.connect(mg,0,ci);amp[e+'tr']=tr});
+const out=ctx.createGain();mg.connect(out);out.connect(outBus);amp.out=out}
+let lPk=[];const BANDNORM=1/2.2; // compensa la suma de bandas paralelas (aprox.)
+function upd(){
+const LF=[4000,5000,6300,8000,10000];let lTrim=[0,0,0,0,0];
+$('lfine').innerHTML=LF.map((f,i)=>`<label>${f} Hz: <span id="lt${i}_v">0</span> dB<input type="range" id="lt${i}" min="-10" max="10" value="0"></label>`).join('');
+LF.forEach((f,i)=>$('lt'+i).oninput=()=>{lTrim[i]=+$('lt'+i).value;$('lt'+i+'_v').textContent=lTrim[i];upd()});
+let qT={};
+$('ql').oninput=()=>{$('ql_v').textContent=$('ql').value;if(qT.g)qT.g.gain.value=Math.pow(10,$('ql').value/20)};
+$('qplay').onclick=async()=>{newCtx();await ctx.resume();if(qT.o){qT.o.stop();qT={};$('qplay').textContent='🔈 Tono (izq.)';return}
+ const o=ctx.createOscillator(),g=ctx.createGain(),m=ctx.createChannelMerger(2);o.frequency.value=+$('qf').value;g.gain.value=Math.pow(10,$('ql').value/20);
+ o.connect(g);g.connect(m,0,0);m.connect(ctx.destination);o.start();qT={o,g};$('qplay').textContent='⏹ Parar tono'}; // directo, sin ganancia ni maestro
+let qThr={};
+$('qmark').onclick=()=>{qThr[$('qf').value]=+$('ql').value;show()};
+function show(){let r='';const ref=qThr[1000];for(const f of[4000,6000,8000])if(qThr[f]!=null&&ref!=null){r+=`${f} Hz ≈ ${Math.max(0,20+qThr[f]-ref)} dB HL (audiograma: ${HL.L[AF.indexOf(f)]}). `}$('qres').textContent=r||'Marca 1 kHz y luego 4/6/8 kHz.'}
+$('qapply').onclick=()=>{const ref=qThr[1000];if(ref==null){$('qres').textContent='Falta 1 kHz';return}
+ for(const f of[4000,6000,8000])if(qThr[f]!=null){const h=Math.max(0,Math.min(70,20+qThr[f]-ref));HL.L[AF.indexOf(f)]=h;PG.L[AF.indexOf(f)]=rule(h)}
+ if(PG.L[5]==0)PG.L[5]=PG.L[6]*.25;BF.forEach((f,i)=>BG.L[i]=interp('L',f));upd();$('qres').textContent+=' ✔️ Aplicado (recarga la página para volver al audiograma).'};
+['vol','mul','tl','tr','cr','tv','nf','zb','tm'].forEach(i=>$(i+'_v').textContent=$(i).value);
+if(!ctx)return;const m=$('mul').value/100,b=$('byp').checked,cr=+$('cr').value;
+['L','R'].forEach(e=>{amp.dry[e].gain.value=b?1:0;amp[e+'wet'].gain.value=b?0:BANDNORM;
+ amp[e].forEach((o,i)=>{o.g.gain.value=Math.pow(10,BG[e][i]*m/20);o.c.ratio.value=e=='L'?Math.min(cr,1.6):cr});if(e=='L')lPk.forEach((p,i)=>p.gain.value=b?0:lTrim[i]);
+ amp[e+'tr'].gain.value=Math.pow(10,$(e=='L'?'tl':'tr').value/20)});
+master.gain.value=Math.pow($('vol').value/100,2)*0.8;
+if(th.lvl)th.lvl.gain.value=Math.pow(10,$('tv').value/20);
+if(th.notches)th.notches.forEach((n,i)=>{n.frequency.value=$('nf').value;n.gain&&0})}
+function toStereo(n,mono){const sp=ctx.createChannelSplitter(2),mm=ctx.createChannelMerger(2);n.connect(sp);sp.connect(mm,0,0);sp.connect(mm,mono?0:1,1);return mm}
+$('go').onclick=async()=>{if(running){stream.getTracks().forEach(t=>t.stop());micSrc.disconnect();running=false;$('go').textContent='▶️ Iniciar micrófono';$('go').className='';$('st').textContent='Micrófono detenido';return}
+try{newCtx();await ctx.resume();stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,latency:0}});
+micSrc=ctx.createMediaStreamSource(stream);toStereo(micSrc,true).connect(inBus);running=true;$('go').textContent='⏹ Detener micrófono';$('go').className='on';$('st').textContent='Activo: micrófono → 15 canales WDRC → limitador → AirPods'}catch(e){$('st').textContent='Error: '+e.message+' (requiere HTTPS y permiso de micrófono)'}};
+$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;newCtx();await ctx.resume();if(fileEl)fileEl.pause();fileEl=new Audio(URL.createObjectURL(f));fileEl.controls=true;$('file').after(fileEl);
+toStereo(ctx.createMediaElementSource(fileEl),false).connect(inBus);fileEl.play();$('st').textContent='Reproduciendo archivo con procesamiento auditivo'};
+
+// ---------- Terapia ----------
+let th={},tEl,tTimer;
+function pinkBuf(sec){const n=ctx.sampleRate*sec,b=ctx.createBuffer(2,n,ctx.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;for(let i=0;i<n;i++){const w=Math.random()*2-1;b0=.99886*b0+w*.0555179;b1=.99332*b1+w*.0750759;b2=.969*b2+w*.153852;b3=.8665*b3+w*.3104856;b4=.55*b4+w*.5329522;b5=-.7616*b5-w*.016898;d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11;b6=w*.115926}}return b}
+function stopT(){clearTimeout(tTimer);clearInterval(th.zi);if(th.src)try{th.src.stop()}catch(e){}if(tEl)tEl.pause();if(th.lvl)th.lvl.disconnect();th={};$('tgo').textContent='▶️ Iniciar terapia';$('tgo').className=''}
+$('tgo').onclick=async()=>{if(th.lvl){stopT();$('st').textContent='Terapia detenida';return}
+newCtx();await ctx.resume();const mode=$('tsrc').value;th.lvl=ctx.createGain();th.lvl.connect(outBus);let src;
+if(mode=='music'){const f=$('tfile').files[0];if(!f){$('st').textContent='Elige un archivo de música para terapia';th.lvl.disconnect();th={};return}
+ tEl=new Audio(URL.createObjectURL(f));tEl.loop=true;tEl.controls=true;$('tfile').after(tEl);src=toStereo(ctx.createMediaElementSource(tEl),false);tEl.play()}
+else if(mode=='zen'){src=ctx.createGain();zen(src)}
+else{const s=ctx.createBufferSource();s.buffer=pinkBuf(8);s.loop=true;s.start();th.src=s;src=s;
+ if(mode=='ri'){const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=$('nf').value;bp.Q.value=2;s.connect(bp);src=bp}}
+let node=src;
+if($('notch').checked&&(mode=='music'||mode=='noise')){th.notches=[];for(let i=0;i<3;i++){const n=ctx.createBiquadFilter();n.type='notch';n.frequency.value=$('nf').value;n.Q.value=1.41;node.connect(n);node=n;th.notches.push(n)}}
+node.connect(th.lvl);upd();
+const mins=mode=='ri'?1:+$('tm').value;if(mins)tTimer=setTimeout(()=>{stopT();$('st').textContent='Terapia finalizada (temporizador)'},mins*60000);
+$('tgo').textContent='⏹ Detener terapia';$('tgo').className='on';$('st').textContent='Terapia: '+$('tsrc').selectedOptions[0].text};
+function zen(out){const sc=[0,2,4,7,9,12,14,16,19,21];const base=+$('zb').value;let r=[0,0,0],k=0,idx=5;
+th.zi=setInterval(()=>{k++;for(let j=0;j<3;j++)if(k%(1<<j)==0)r[j]=Math.floor(Math.random()*3)-1;idx=Math.max(0,Math.min(sc.length-1,idx+r[0]+r[1]+r[2]));
+ const f=Math.min(9000,base*Math.pow(2,(sc[idx]-12)/12)),o=ctx.createOscillator(),g=ctx.createGain(),p=ctx.createStereoPanner?ctx.createStereoPanner():ctx.createGain(),t0=ctx.currentTime;
+ o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(.5,t0+.02);g.gain.exponentialRampToValueAtTime(.001,t0+1.6);
+ if(p.pan)p.pan.value=Math.random()*.8-.4;o.connect(g);g.connect(p);p.connect(out);o.start(t0);o.stop(t0+1.7)},[350,500,700][Math.floor(Math.random()*3)])}
+['vol','mul','tl','tr','cr','tv','nf','zb','tm'].forEach(i=>$(i).oninput=upd);$('byp').onchange=upd;upd();
+window.onerror=(m)=>{$('st').textContent='Error JS: '+m};
+</script></body></html>
