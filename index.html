@@ -138,10 +138,10 @@ master=ctx.createGain();
 const fb=ctx.createBiquadFilter();fb.type='lowpass';fb.frequency.value=11000; // reduce riesgo de pitido
 const lim=ctx.createDynamicsCompressor();lim.threshold.value=-6;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=.001;lim.release.value=.05;
 const cap=ctx.createWaveShaper();const k=new Float32Array(2048);for(let i=0;i<2048;i++){const x=i/1023.5-1;k[i]=Math.max(-.7,Math.min(.7,x))}cap.curve=k; // techo duro ≈ -3 dBFS
-const hsp=ctx.createChannelSplitter(2),hmg=ctx.createChannelMerger(2);hsL=ctx.createBiquadFilter();hsR=ctx.createBiquadFilter();[hsL,hsR].forEach((h,i)=>{h.type='highshelf';h.frequency.value=8000;h.gain.value=0;hsp.connect(h,i);h.connect(hmg,0,i)});master.connect(hsp);hmg.connect(fb);fbF=fb;fb.connect(lim);lim.connect(cap);try{const md=ctx.createMediaStreamDestination();cap.connect(md);bgEl=document.createElement('audio');bgEl.setAttribute('playsinline','');bgEl.srcObject=md.stream;document.body.appendChild(bgEl);bgEl.play().catch(()=>{});bgMode=true}catch(e){cap.connect(ctx.destination)}
-if('mediaSession' in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:'Amplificador + Terapia',artist:'Yobanni'})}
+const hsp=ctx.createChannelSplitter(2),hmg=ctx.createChannelMerger(2);hsL=ctx.createBiquadFilter();hsR=ctx.createBiquadFilter();[hsL,hsR].forEach((h,i)=>{h.type='highshelf';h.frequency.value=8000;h.gain.value=0;hsp.connect(h,i);h.connect(hmg,0,i)});master.connect(hsp);hmg.connect(fb);fbF=fb;fb.connect(lim);lim.connect(cap);try{const md=ctx.createMediaStreamDestination();cap.connect(md);bgEl=document.createElement('audio');bgEl.setAttribute('playsinline','');bgEl.srcObject=md.stream;bgEl.addEventListener('pause',()=>{if(wantT)setTimeout(kick,800)});bgEl.addEventListener('ended',()=>{if(wantT)setTimeout(kick,800)});document.body.appendChild(bgEl);bgEl.play().catch(()=>{});bgMode=true}catch(e){cap.connect(ctx.destination)}
+if('mediaSession' in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:'Terapia tinnitus',artist:'Yobanni'})}
 if(!window._visL){window._visL=1;document.addEventListener('visibilitychange',()=>{if(document.visibilityState!='visible'||!ctx)return;if(ctx.state!='running'&&th.lvl){ensureCtx().catch(()=>{})}else if(ctx.state!='running')ctx.resume().catch(()=>{});if(bgEl&&bgEl.paused)bgEl.play().catch(()=>{})})}
-ctx.onstatechange=()=>{if(!ctx)return;if(ctx.state!='running'&&th.lvl&&document.visibilityState=='visible')ctx.resume().catch(()=>{})};
+ctx.onstatechange=()=>{if(ctx&&ctx.state!='running'&&wantT)kick()};
 outBus=ctx.createGain();outBus.connect(fb); // terapia independiente del volumen del amplificador
 buildAmp();upd()}
 function buildAmp(){inBus=ctx.createChannelSplitter(2);const mg=ctx.createChannelMerger(2);amp.dry={};
@@ -196,22 +196,40 @@ let tBusy=false;
 function stopT(){clearTimeout(tTimer);try{clearInterval(th.zi)}catch(e){}if(th.src)try{th.src.stop()}catch(e){}
 if(tEl){try{tEl.pause();const u=tEl.src;tEl.removeAttribute('src');tEl.load();tEl.remove();if(u&&u.startsWith('blob:'))URL.revokeObjectURL(u)}catch(e){}tEl=null}
 try{if(th.tSrc)th.tSrc.disconnect()}catch(e){}try{if(th.lvl)th.lvl.disconnect()}catch(e){}th={};$('tgo').textContent='▶️ Iniciar terapia';$('tgo').className=''}
-$('tgo').onclick=async()=>{if(th.lvl||tBusy){tBusy=false;stopT();$('st').textContent='Terapia detenida';return}
-tBusy=true;$('tgo').textContent='⏹ Detener terapia';$('tgo').className='on';$('st').textContent='Iniciando…';
-try{await startT()}catch(e){stopT();$('st').textContent='Error al iniciar: '+(e&&e.message||e)+' — pulsa Iniciar otra vez'}tBusy=false};
+$('tgo').onclick=async()=>{if(th.lvl||tBusy){wantT=false;tBusy=false;stopT();$('st').textContent='Terapia detenida';return}
+wantT=true;tBusy=true;$('tgo').textContent='⏹ Detener terapia';$('tgo').className='on';$('st').textContent='Iniciando…';
+try{await startT()}catch(e){wantT=false;stopT();$('st').textContent='Error al iniciar: '+(e&&e.message||e)+' — pulsa Iniciar otra vez'}tBusy=false};
 ['tsrc','zb','notch'].forEach(id=>$(id).addEventListener('change',async()=>{if(!th.lvl||tBusy)return;stopT();tBusy=true;try{await startT()}catch(e){stopT();$('st').textContent='Error al cambiar: '+(e&&e.message||e)}tBusy=false}));
 async function startT(){
 await ensureCtx();if(!tBusy&&!th.lvl)return;const mode=$('tsrc').value;th.lvl=ctx.createGain();{const sp=ctx.createChannelSplitter(2),mg=ctx.createChannelMerger(2);th.eL=ctx.createGain();th.eR=ctx.createGain();th.lvl.connect(sp);sp.connect(th.eL,0);sp.connect(th.eR,1);th.eL.connect(mg,0,0);th.eR.connect(mg,0,1);mg.connect(outBus)}let src;
 if(mode=='music'){const f=$('tfile').files[0];if(!f){$('st').textContent='Elige un archivo de música para terapia';stopT();$('st').textContent='Elige un archivo de música para terapia';return}
- tEl=new Audio(URL.createObjectURL(f));tEl.loop=true;tEl.controls=true;$('tfile').after(tEl);th.tSrc=ctx.createMediaElementSource(tEl);src=toStereo(th.tSrc,false);await tEl.play()}
+ tEl=new Audio(URL.createObjectURL(f));tEl.loop=true;tEl.controls=false;tEl.setAttribute('playsinline','');tEl.addEventListener('pause',()=>{if(wantT)setTimeout(kick,800)});$('tfile').after(tEl);th.tSrc=ctx.createMediaElementSource(tEl);src=toStereo(th.tSrc,false);await tEl.play()}
 else if(mode=='zen'){src=ctx.createGain();zen(src)}
 else{const s=ctx.createBufferSource();s.buffer=pinkBuf(8);s.loop=true;s.start();th.src=s;src=s;
  if(mode=='ri'){const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=$('nf').value;bp.Q.value=2;s.connect(bp);src=bp}}
 let node=src;
 if($('notch').checked&&(mode=='music'||mode=='noise')){th.notches=[];for(let i=0;i<3;i++){const n=ctx.createBiquadFilter();n.type='notch';n.frequency.value=$('nf').value;n.Q.value=1.41;node.connect(n);node=n;th.notches.push(n)}}
 node.connect(th.lvl);upd();
-const mins=mode=='ri'?1:+$('tm').value;if(mins)tTimer=setTimeout(()=>{stopT();$('st').textContent='Terapia finalizada (temporizador)'},mins*60000);
+const mins=mode=='ri'?1:+$('tm').value;if(mins)tTimer=setTimeout(()=>{wantT=false;stopT();$('st').textContent='Terapia finalizada (temporizador)'},mins*60000);
 $('tgo').textContent='⏹ Detener terapia';$('tgo').className='on';$('st').textContent='Terapia: '+$('tsrc').selectedOptions[0].text}
+// ---- Reanudación automática tras audio de otras apps ----
+let wantT=false,paused2=false;
+try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch(e){}
+function kick(){if(!wantT||tBusy)return;
+ if(!th.lvl){tBusy=true;startT().catch(()=>stopT()).finally(()=>{tBusy=false});return}
+ if(!ctx)return;
+ if(ctx.state!='running'){paused2=true;$('st').textContent='En pausa por otro audio, se reanudará sola';
+  ctx.resume().then(()=>{if(wantT&&ctx&&ctx.state=='running'&&paused2){paused2=false;$('st').textContent='Terapia: '+$('tsrc').selectedOptions[0].text}}).catch(()=>{})}
+ else if(paused2){paused2=false;$('st').textContent='Terapia: '+$('tsrc').selectedOptions[0].text}
+ if(bgEl&&bgEl.paused)bgEl.play().catch(()=>{});
+ if(tEl&&tEl.paused)tEl.play().catch(()=>{})}
+setInterval(kick,1500);
+['focus','pageshow'].forEach(ev=>window.addEventListener(ev,kick));
+document.addEventListener('visibilitychange',kick);
+if('mediaSession' in navigator){try{
+ navigator.mediaSession.setActionHandler('play',()=>{if(!wantT)$('tgo').click();else kick()});
+ navigator.mediaSession.setActionHandler('pause',()=>{if(wantT||th.lvl)$('tgo').click()});
+ navigator.mediaSession.metadata=new MediaMetadata({title:'Terapia tinnitus',artist:'Yobanni'})}catch(e){}}
 function zen(out){const sc=[0,2,4,7,9,12,14,16,19,21];const base=+$('zb').value;let r=[0,0,0],k=0,idx=5;
 th.zi=setInterval(()=>{k++;for(let j=0;j<3;j++)if(k%(1<<j)==0)r[j]=Math.floor(Math.random()*3)-1;idx=Math.max(0,Math.min(sc.length-1,idx+r[0]+r[1]+r[2]));
  const f=Math.min(9000,base*Math.pow(2,(sc[idx]-12)/12)),o=ctx.createOscillator(),g=ctx.createGain(),p=ctx.createStereoPanner?ctx.createStereoPanner():ctx.createGain(),t0=ctx.currentTime;
